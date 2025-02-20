@@ -4,7 +4,10 @@ from credentials import BOT_TOKEN, BOT_USERNAME
 import json
 
 async def launch_web_ui(update: Update, callback: CallbackContext):
-    await update.effective_chat.send_message("I hear you loud and clear !")
+    kb = [
+        [KeyboardButton("TAP TO EARN!!!", web_app=WebAppInfo("https://v0-pesa-swap-52-f2lgcm.vercel.app/"))]
+    ]
+    await update.message.reply_text("Enjoy Tapping ... ", reply_markup=ReplyKeyboardMarkup(kb))
 
 
 if __name__ == '__main__':
