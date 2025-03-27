@@ -1,0 +1,45 @@
+{
+    "manifest_version": 2,
+    "name": "WhatsApp Helper (Firefox)",
+    "version": "1.0.0",
+    "description": "WhatsApp Helper your WhatsApp Customer Support Companion!",
+    "permissions": [
+      "activeTab",
+      "storage",
+      "clipboardWrite",
+      "tabs",
+      "webRequest",
+      "https://8x53o7hj.rcld.app/webhook-test/trigger/",
+      "http://localhost:8000/*",
+      "ws://localhost:8000/*"
+    ],
+    "browser_action": {
+      "default_popup": "login.html",
+      "default_icon": {
+        "128": "icon-128.png"
+      }
+    },
+    "icons": {
+      "128": "icon-128.png"
+    },
+    "web_accessible_resources": [
+      "html2canvas.min.js",
+      "socket.io.min.js",
+      "chat.html",
+      "styles.css",
+      "script.js",
+      "auth.js",
+      "login.html",
+      "index.html",
+      "websocket.js",
+      "state-manager.js",
+      "browser-polyfill.js"
+    ],
+    "background": {
+      "scripts": ["browser-polyfill.js"],
+      "persistent": false
+    },
+    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+  }
+  
+  
