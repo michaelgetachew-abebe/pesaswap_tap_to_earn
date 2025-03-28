@@ -70,3 +70,5 @@ services:
 volumes:
   traefik_data:
   n8n_data:
+
+
