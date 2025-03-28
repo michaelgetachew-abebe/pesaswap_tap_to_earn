@@ -2,7 +2,7 @@ version: '3.8'
 
 networks:
   backend-network:
-    external: true  # Ensures it works with your existing Postgres setup
+    external: true
 
 services:
   traefik:
@@ -50,7 +50,7 @@ services:
       - ./local-files:/files
 
   backend:
-    image: backend  # Uses your existing FastAPI image
+    image: backend
     restart: always
     labels:
       - "traefik.enable=true"
@@ -58,12 +58,14 @@ services:
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.websocket.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.middlewares.websocket.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.routers.backend.middlewares=websocket@docker"
     networks:
       - backend-network
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/dbname
     expose:
-      - "8000"  # Traefik will access this internally
+      - "8000"
 
 volumes:
   traefik_data:
