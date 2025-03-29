@@ -67,19 +67,6 @@ services:
     expose:
       - "8000"
 
-  addon-sharing-webapp:
-    image: addon-sharing-webapp
-    restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.addon-sharing-webapp.rule=Host(`sharing.srv768692.hstgr.cloud`)"
-      - "traefik.http.routers.addon-sharing-webapp.entrypoints=websecure"
-      - "traefik.http.routers.addon-sharing-webapp.tls=true"
-      - "traefik.http.routers.addon-sharing-webapp.tls.certresolver=mytlschallenge"
-      - "traefik.http.services.addon-sharing-webapp.loadbalancer.server.port=85"
-    networks:
-      - backend-network
-
 volumes:
   traefik_data:
   n8n_data:
