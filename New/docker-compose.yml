@@ -54,13 +54,17 @@ services:
     restart: always
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.srv768692.hstgr.cloud`)"
-      - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls=true"
-      - "traefik.http.routers.backend.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.backend-api.rule=Host(`api.srv768692.hstgr.cloud`)"
+      - "traefik.http.routers.backend-api.entrypoints=websecure"
+      - "traefik.http.routers.backend-api.tls=true"
+      - "traefik.http.routers.backend-api.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.backend-ws.rule=Host(`api.srv768692.hstgr.cloud`) && Path(`/ws`)"
+      - "traefik.http.routers.backend-ws.entrypoints=websecure"
+      - "traefik.http.routers.backend-ws.tls=true"
+      - "traefik.http.routers.backend-ws.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.backend-ws.middlewares=websocket@docker"
       - "traefik.http.middlewares.websocket.headers.customrequestheaders.Upgrade=websocket"
       - "traefik.http.middlewares.websocket.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.routers.backend.middlewares=websocket@docker"
     networks:
       - backend-network
     environment:
@@ -69,7 +73,6 @@ services:
       - BACKEND_PROTOCOL=https
     volumes:
       - backend_data:/app/data
-
 volumes:
   traefik_data:
   n8n_data:
