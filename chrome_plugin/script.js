@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Backend API URLs
-  const API_BASE_URL = "http:145.223.18.225//8000"
+  const API_BASE_URL = "https//api.srv768692.hstgr.cloud"
   const LOGOUT_URL = `${API_BASE_URL}/logout`
 
   // Declare chrome variable
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       connect(token) {
-        const WS_URL = `ws://145.223.18.225:8000/ws?token=${token}`
+        const WS_URL = `wss://api.srv768692.hstgr.cloud/ws?token=${token}`
         this.ws = new WebSocket(WS_URL)
 
         this.ws.onopen = () => {
@@ -109,6 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const customerQuestionUkrainian = document.getElementById("customer-question-ukrainian")
   const acceptBtn = document.getElementById("accept-btn")
   const rejectBtn = document.getElementById("reject-btn")
+  const loadingSpinnerMain = document.getElementById("loading-spinner-main") // Add this line
 
   // Chat elements (only in chat.html)
   const chatPage = document.getElementById("chat-page")
@@ -260,6 +261,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return JSON.stringify(data, null, 2)
   }
 
+  // Helper function to update loading spinner text
+  function updateLoadingSpinnerText(spinner, isRejection) {
+    if (!spinner) return
+
+    const spinnerText = spinner.querySelector(".text-sm")
+    if (spinnerText) {
+      spinnerText.textContent = isRejection ? "Re-processing Rejected response..." : "Generating AI response..."
+    }
+  }
+
   // Show/hide chat history container
   window.toggleChatHistory = (show) => {
     if (responseBox) {
@@ -354,13 +365,13 @@ document.addEventListener("DOMContentLoaded", () => {
           rejection_status: rejectedAnswer ? "yes" : "no",
           rejected_response: rejectedAnswer ? response : "",
         },
-        agent_id: agentId,
-        agent_persona: persona
+        agent_id: agentId, // Include agent ID in the payload
+        agent_persona: persona,
       }
 
       console.log("Sending payload to AI Agent:", payload)
 
-      const apiResponse = await fetch("https://srv768692.hstgr.cloud/webhook-test/trigger", {
+      const apiResponse = await fetch("https://n8n.srv768692.hstgr.cloud/webhook/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -583,7 +594,14 @@ document.addEventListener("DOMContentLoaded", () => {
           // Display chat-specific history for this contact
           window.displayChatHistory(chat.contact_name)
 
+          // Set loading spinner text for initial generation
+          updateLoadingSpinnerText(loadingSpinnerMain, false)
+          if (loadingSpinnerMain) loadingSpinnerMain.classList.remove("hidden")
+
           const aiResult = await sendToAIAgent(chat, agentPersona)
+
+          if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
+
           window.lastAIResult = aiResult
           renderAIResponse(aiResult)
           console.log(`Sent chat with ${chat.unread_count} unread messages to webhook`)
@@ -602,6 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Extraction error:", error)
       if (statusText) statusText.textContent = error.message || "Error extracting chat data"
       if (responseBox) responseBox.textContent = ""
+      if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
     } finally {
       if (startBtn) startBtn.disabled = false
     }
@@ -736,6 +755,8 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addChatMessage(message, true)
     chatInput.value = ""
 
+    // Set loading spinner text for initial generation
+    updateLoadingSpinnerText(loadingSpinner, false)
     if (loadingSpinner) loadingSpinner.classList.remove("hidden")
 
     try {
@@ -812,11 +833,28 @@ document.addEventListener("DOMContentLoaded", () => {
   if (rejectBtn) {
     rejectBtn.addEventListener("click", async () => {
       if (!window.currentChat) return
-      if (statusText) statusText.textContent = "Reprocessing rejected response..."
+
+      // First show "Response Rejected" message
+      if (statusText) statusText.textContent = "Response Rejected"
+
+      // Wait a moment to show the rejection message before showing the loading spinner
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Then show loading spinner with "Re-processing Rejected response..." text
+      if (statusText) statusText.textContent = "Re-processing Rejected response..."
+
+      // Update the loading spinner text for rejection
+      updateLoadingSpinnerText(loadingSpinnerMain, true)
+      if (loadingSpinnerMain) loadingSpinnerMain.classList.remove("hidden")
+
       try {
         const rejectedResponse = window.lastAIResult?.customer_response || ""
         const aiResult = await sendToAIAgent(window.currentChat, agentPersona, true, rejectedResponse)
         window.lastAIResult = aiResult
+
+        // Hide loading spinner
+        if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
+
         renderAIResponse(aiResult)
         if (statusText) statusText.textContent = "Reprocessed response rendered!"
 
@@ -825,6 +863,9 @@ document.addEventListener("DOMContentLoaded", () => {
           window.stateManager.saveState()
         }
       } catch (error) {
+        // Hide loading spinner on error too
+        if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
+
         if (statusText) statusText.textContent = "Error reprocessing response"
         console.error("Reprocessing error:", error)
       }
@@ -858,12 +899,25 @@ document.addEventListener("DOMContentLoaded", () => {
   if (rejectBtn2) {
     rejectBtn2.addEventListener("click", async () => {
       if (!window.currentChatMessage) return
-      if (aiResponseContainer2) aiResponseContainer2.classList.add("hidden")
+
+      // First show "Response Rejected" message
       window.addChatMessage("Response Rejected", false)
+
+      // Wait a moment to show the rejection message before showing the loading spinner
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Update the loading spinner text for rejection
+      updateLoadingSpinnerText(loadingSpinner, true)
+      if (loadingSpinner) loadingSpinner.classList.remove("hidden")
+
       try {
         const rejectedResponse = window.lastChatAIResult?.customer_response || ""
         const aiResult = await sendToAIAgent(window.currentChatMessage, agentPersona, true, rejectedResponse)
         window.lastChatAIResult = aiResult
+
+        // Hide loading spinner
+        if (loadingSpinner) loadingSpinner.classList.add("hidden")
+
         window.addChatMessage(
           aiResult.customer_question_ukranian || "No response from AI",
           false,
@@ -878,6 +932,8 @@ document.addEventListener("DOMContentLoaded", () => {
           window.stateManager.saveState()
         }
       } catch (error) {
+        // Hide loading spinner on error too
+        if (loadingSpinner) loadingSpinner.classList.add("hidden")
         window.addChatMessage("Error: Could not reprocess response", false)
       }
     })

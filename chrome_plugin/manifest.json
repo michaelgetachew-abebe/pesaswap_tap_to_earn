@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "WhatsApp Helper your WhatsApp Customer Support Companion!",
   "permissions": ["activeTab", "scripting", "storage", "clipboardWrite"],
-  "host_permissions": ["https://srv768692.hstgr.cloud/webhook-test/trigger"],
+  "host_permissions": ["https://n8n.srv768692.hstgr.cloud/webhook/trigger"],
   "action": {
     "default_popup": "login.html",
     "default_icon": {

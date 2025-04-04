@@ -56,7 +56,7 @@ body {
     "Helvetica Neue", sans-serif;
   background-color: var(--background);
   color: var(--foreground);
-  width: 360px;
+  width: 420px; /* Increased from 360px to 420px */
   height: 600px; /* Increased from 500px to 600px */
   overflow: hidden;
   margin: 0;
@@ -269,9 +269,10 @@ body {
   background-color: var(--muted);
   border-radius: var(--radius);
   min-height: 80px;
-  max-height: 150px; /* Add max height */
-  height: auto; /* Allow height to adjust to content */
+  max-height: 180px; /* Increased from 150px to 180px */
+  height: auto;
   overflow-y: auto;
+  width: 100%; /* Ensure it takes full width of its container */
 }
 
 /* Update the response item styles */
@@ -300,8 +301,8 @@ body {
   overflow-y: auto;
   margin-bottom: 12px;
   flex: 1;
-  min-height: 180px;
-  max-height: 180px; /* Reduced to ensure it fits within the container */
+  min-height: 200px; /* Increased from 180px */
+  max-height: 200px; /* Increased from 180px */
 }
 
 .carousel-track {
@@ -316,7 +317,7 @@ body {
   min-width: 100%;
   flex: 0 0 100%;
   height: auto;
-  min-height: 180px;
+  min-height: 200px; /* Increased from 180px */
   padding-bottom: 20px; /* Add padding at the bottom */
 }
 
@@ -716,7 +717,7 @@ body {
 }
 
 .login-error {
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: rgba(239, 68, 44, 0.1);
   color: var(--danger);
   padding: 8px 12px;
   border-radius: var(--radius);

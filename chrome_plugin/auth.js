@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
     // Backend API URLs
     // "http://localhost:8000"
-    const API_BASE_URL = "http://145.223.18.225:8000"
+    const API_BASE_URL = "https://api.srv768692.hstgr.cloud"
     const LOGIN_URL = `${API_BASE_URL}/login`
   
     // Check if user is already logged in
