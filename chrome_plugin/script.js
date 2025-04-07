@@ -99,7 +99,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // AutoReply elements (only in index.html)
   const autoreplyPage = document.getElementById("autoreply-page")
-  const startBtn = document.getElementById("start-btn")
+  const autoTrackingBtn = document.getElementById("auto-tracking-btn")
+  const manualTrackingBtn = document.getElementById("manual-tracking-btn")
   const statusText = document.getElementById("status")
   const responseBox = document.getElementById("response")
   const chatHistoryLabel = document.getElementById("chat-history-label")
@@ -141,6 +142,12 @@ document.addEventListener("DOMContentLoaded", () => {
   window.isDarkMode = false
   window.currentSlide = 0
   window.chatHistories = {} // Store chat histories by contact name
+
+  // Auto tracking state
+  window.isAutoTracking = false
+  window.isManualTracking = false
+  window.autoTrackingInterval = null
+  window.autoTrackingDelay = 10000 // 10 seconds between checks
 
   // Handle logout
   async function handleLogout() {
@@ -271,6 +278,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Helper function to update button states
+  function updateTrackingButtonStates() {
+    if (!autoTrackingBtn || !manualTrackingBtn) return
+
+    if (window.isAutoTracking) {
+      // Auto tracking is active
+      autoTrackingBtn.disabled = false
+      manualTrackingBtn.disabled = true
+    } else if (window.isManualTracking) {
+      // Manual tracking is active
+      autoTrackingBtn.disabled = true
+      manualTrackingBtn.disabled = true
+    } else {
+      // No tracking active
+      autoTrackingBtn.disabled = false
+      manualTrackingBtn.disabled = false
+    }
+  }
+
   // Show/hide chat history container
   window.toggleChatHistory = (show) => {
     if (responseBox) {
@@ -331,7 +357,10 @@ document.addEventListener("DOMContentLoaded", () => {
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
           func: (index) => {
-            const chatList = document.querySelector('div[aria-label="Chat list"]')
+            // const chatList = document.querySelector('div[aria-label="Chat list"]')
+            const chatList = document.querySelector(
+              document.documentElement.lang === "en" ? 'div[aria-label="Chat list"]' : 'div[aria-label="Список чатов"]',
+            )
             if (!chatList) throw new Error("Chat list not found!")
             const chatElement = chatList.childNodes[index]
             if (!chatElement) throw new Error(`Chat element at index ${index} not found!`)
@@ -371,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       console.log("Sending payload to AI Agent:", payload)
 
-      const apiResponse = await fetch("https://n8n.srv768692.hstgr.cloud/webhook/trigger", {
+      const apiResponse = await fetch("https://n8n.srv768692.hstgr.cloud/webhook-test/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -467,7 +496,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
           return new Promise(async (resolve) => {
             const chatHistories = {}
-            const chatList = document.querySelector('div[aria-label="Chat list"]')
+            // const chatList = document.querySelector('div[aria-label="Chat list"]')
+            const chatList = document.querySelector(
+              document.documentElement.lang === "en" ? 'div[aria-label="Chat list"]' : 'div[aria-label="Список чатов"]',
+            )
             if (!chatList) {
               resolve({ error: "Chat list not found!" })
               return
@@ -514,8 +546,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // Updated extractChatData with Chat History Display
   async function extractChatData() {
     try {
-      if (statusText) statusText.textContent = "Extracting chat data..."
-      if (startBtn) startBtn.disabled = true
+      // Set tracking state
+      if (!window.isAutoTracking) {
+        window.isManualTracking = true
+      }
+
+      // Update button states
+      updateTrackingButtonStates()
+
+      if (statusText) {
+        if (window.isAutoTracking) {
+          statusText.textContent = "Auto tracking: Extracting chat data..."
+        } else {
+          statusText.textContent = "Manual tracking: Extracting chat data..."
+        }
+      }
 
       // Hide AI response container if it's visible
       if (aiResponseContainer) aiResponseContainer.classList.add("hidden")
@@ -537,7 +582,12 @@ document.addEventListener("DOMContentLoaded", () => {
           {
             target: { tabId: tab.id },
             func: () => {
-              const chatList = document.querySelector('div[aria-label="Chat list"]')
+              // const chatList = document.querySelector('div[aria-label="Chat list"]')
+              const chatList = document.querySelector(
+                document.documentElement.lang === "en"
+                  ? 'div[aria-label="Chat list"]'
+                  : 'div[aria-label="Список чатов"]',
+              )
               if (!chatList) return "Chat list not found!"
 
               const chatData = []
@@ -548,7 +598,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 const recent_timestamp = chatParts[1] || ""
                 const message = chatParts[2] || ""
                 const other_details = chatParts.slice(3).join(" ") || ""
-                const unreadBadge = child.querySelector('span[aria-label*="unread"]')
+                // const unreadBadge = child.querySelector('span[aria-label*="unread"]')
+                const unreadBadge = child.querySelector(
+                  document.documentElement.lang === "en"
+                    ? 'span[aria-label*="unread"]'
+                    : 'span[aria-label*="непрочитанное"]',
+                )
+
                 let unread_count = "0"
                 if (unreadBadge) {
                   const label = unreadBadge.getAttribute("aria-label")
@@ -577,11 +633,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (typeof chatData === "string") throw new Error(chatData)
 
-      if (statusText) statusText.textContent = "Chat data extracted successfully!"
+      if (statusText) {
+        if (window.isAutoTracking) {
+          statusText.textContent = "Auto tracking: Chat data extracted successfully!"
+        } else {
+          statusText.textContent = "Chat data extracted successfully!"
+        }
+      }
 
       const unreadChats = chatData.filter((chat) => Number.parseInt(chat.unread_count) > 0)
       if (unreadChats.length > 0) {
-        if (statusText) statusText.textContent = "Processing unread chats..."
+        if (statusText) {
+          if (window.isAutoTracking) {
+            statusText.textContent = "Auto tracking: Processing unread chats..."
+          } else {
+            statusText.textContent = "Processing unread chats..."
+          }
+        }
 
         // Click chats and extract full histories first
         await clickChatElement(tab.id, chatData)
@@ -614,15 +682,41 @@ document.addEventListener("DOMContentLoaded", () => {
           break // Process only the first unread chat for AI response
         }
 
-        if (statusText) statusText.textContent = "Waiting for operator action..."
+        if (statusText) {
+          if (window.isAutoTracking) {
+            statusText.textContent = "Auto tracking: Waiting for operator action..."
+          } else {
+            statusText.textContent = "Waiting for operator action..."
+          }
+        }
+      } else {
+        if (statusText) {
+          if (window.isAutoTracking) {
+            statusText.textContent = "Auto tracking: No unread messages found."
+          } else {
+            statusText.textContent = "No unread messages found."
+          }
+        }
       }
     } catch (error) {
       console.error("Extraction error:", error)
-      if (statusText) statusText.textContent = error.message || "Error extracting chat data"
+      if (statusText) {
+        if (window.isAutoTracking) {
+          statusText.textContent = `Auto tracking error: ${error.message || "Error extracting chat data"}`
+        } else {
+          statusText.textContent = error.message || "Error extracting chat data"
+        }
+      }
       if (responseBox) responseBox.textContent = ""
       if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
     } finally {
-      if (startBtn) startBtn.disabled = false
+      // Reset manual tracking state if not in auto tracking mode
+      if (!window.isAutoTracking) {
+        window.isManualTracking = false
+      }
+
+      // Update button states
+      updateTrackingButtonStates()
     }
   }
 
@@ -799,8 +893,108 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 2000)
   }
 
-  // Event Listeners
-  if (startBtn) startBtn.addEventListener("click", extractChatData)
+  // Auto tracking functions
+  function startAutoTracking() {
+    if (window.isAutoTracking) return
+
+    window.isAutoTracking = true
+
+    // Disable manual tracking button
+    if (manualTrackingBtn) {
+      manualTrackingBtn.disabled = true
+    }
+
+    if (autoTrackingBtn) {
+      autoTrackingBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="6" width="12" height="12"></rect>
+        </svg>
+        Stop Auto Tracking
+      `
+      autoTrackingBtn.classList.add("btn-danger")
+    }
+
+    if (statusText) statusText.textContent = "Auto tracking started..."
+
+    // Run the first check immediately
+    runAutoTrackingCycle()
+
+    // Set up interval for continuous checking
+    window.autoTrackingInterval = setInterval(runAutoTrackingCycle, window.autoTrackingDelay)
+
+    // Save state after starting auto tracking
+    if (window.stateManager) {
+      window.stateManager.saveState()
+    }
+  }
+
+  function stopAutoTracking() {
+    if (!window.isAutoTracking) return
+
+    window.isAutoTracking = false
+
+    // Enable manual tracking button
+    if (manualTrackingBtn) {
+      manualTrackingBtn.disabled = false
+    }
+
+    if (autoTrackingBtn) {
+      autoTrackingBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="10 8 16 12 10 16 10 8"></polygon>
+        </svg>
+        Auto Tracking
+      `
+      autoTrackingBtn.classList.remove("btn-danger")
+    }
+
+    if (statusText) statusText.textContent = "Auto tracking stopped"
+
+    // Clear the interval
+    if (window.autoTrackingInterval) {
+      clearInterval(window.autoTrackingInterval)
+      window.autoTrackingInterval = null
+    }
+
+    // Save state after stopping auto tracking
+    if (window.stateManager) {
+      window.stateManager.saveState()
+    }
+  }
+
+  async function runAutoTrackingCycle() {
+    if (!window.isAutoTracking) return
+
+    try {
+      if (statusText) statusText.textContent = "Auto tracking: Checking for unread messages..."
+
+      await extractChatData()
+
+      if (statusText && window.isAutoTracking) statusText.textContent = "Auto tracking: Waiting for next check..."
+    } catch (error) {
+      console.error("Auto tracking cycle error:", error)
+      if (statusText) statusText.textContent = `Auto tracking error: ${error.message}`
+    }
+  }
+
+  // Event Listeners for tracking buttons
+  if (autoTrackingBtn) {
+    autoTrackingBtn.addEventListener("click", () => {
+      if (window.isAutoTracking) {
+        stopAutoTracking()
+      } else {
+        startAutoTracking()
+      }
+    })
+  }
+
+  if (manualTrackingBtn) {
+    manualTrackingBtn.addEventListener("click", () => {
+      // For now, just run the extractChatData function once
+      extractChatData()
+    })
+  }
 
   if (acceptBtn) {
     acceptBtn.addEventListener("click", () => {
@@ -971,5 +1165,226 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     })
   }
+
+  // Initialize button states
+  updateTrackingButtonStates()
 })
 
+// State Manager
+if (typeof StateManager === "undefined") {
+  class StateManager {
+    constructor() {
+      this.state = {}
+    }
+
+    // Initialize state manager
+    async initialize() {
+      try {
+        const result = await chrome.storage.local.get("whatsapp_helper_state")
+        this.state = result.whatsapp_helper_state || {}
+        return this.state
+      } catch (error) {
+        console.error("Error initializing state:", error)
+        return null
+      }
+    }
+
+    // Collect current application state
+    collectState() {
+      const currentPage = window.location.href.includes("chat.html") ? "chat" : "autoreply"
+
+      // Common state
+      const state = {
+        currentPage,
+        darkMode: document.body.classList.contains("dark"),
+        timestamp: Date.now(),
+      }
+
+      // Page-specific state
+      if (currentPage === "autoreply") {
+        // WhatsApp Helper page state
+        state.autoreply = {
+          currentChat: window.currentChat,
+          lastAIResult: window.lastAIResult,
+          chatHistories: window.chatHistories || {},
+          statusText: document.getElementById("status")?.textContent,
+          showingAIResponse: !document.getElementById("ai-response-container")?.classList.contains("hidden"),
+          currentSlide: window.currentSlide || 0,
+          isAutoTracking: window.isAutoTracking || false,
+          isManualTracking: window.isManualTracking || false,
+        }
+      } else {
+        // Test Chat page state
+        state.chat = {
+          chatHistory: this.collectChatHistory(),
+          lastChatAIResult: window.lastChatAIResult,
+          currentChatMessage: window.currentChatMessage,
+          showingAIResponse: !document.getElementById("ai-response-container2")?.classList.contains("hidden"),
+        }
+      }
+
+      return state
+    }
+
+    // Collect chat history
+    collectChatHistory() {
+      const chatHistory = document.getElementById("chat-history")
+      if (!chatHistory) return []
+
+      const messages = []
+      chatHistory.childNodes.forEach((messageDiv) => {
+        const isUser = messageDiv.classList.contains("user")
+        const messageContent = messageDiv.querySelector("p")?.textContent || ""
+        messages.push({ isUser, messageContent })
+      })
+
+      return messages
+    }
+
+    // Save state to local storage
+    async saveState() {
+      const state = this.collectState()
+      try {
+        await chrome.storage.local.set({ whatsapp_helper_state: state })
+        console.log("State saved:", state)
+      } catch (error) {
+        console.error("Error saving state:", error)
+      }
+    }
+
+    // Apply state to the application
+    applyState(state) {
+      if (!state) return
+
+      // Apply common state
+      if (state.darkMode !== undefined) {
+        if (state.darkMode) {
+          document.body.classList.add("dark")
+          const sunIcon = document.querySelector("#theme-toggle .sun")
+          const moonIcon = document.querySelector("#theme-toggle .moon")
+          if (sunIcon && moonIcon) {
+            sunIcon.classList.add("hidden")
+            moonIcon.classList.remove("hidden")
+          }
+          window.isDarkMode = true
+        } else {
+          document.body.classList.remove("dark")
+          const sunIcon = document.querySelector("#theme-toggle .sun")
+          const moonIcon = document.querySelector("#theme-toggle .moon")
+          if (sunIcon && moonIcon) {
+            sunIcon.classList.remove("hidden")
+            moonIcon.classList.add("hidden")
+          }
+          window.isDarkMode = false
+        }
+      }
+
+      // Apply page-specific state
+      if (state.currentPage === "autoreply" && state.autoreply) {
+        this.applyAutoreplyState(state.autoreply)
+      } else if (state.currentPage === "chat" && state.chat) {
+        this.applyChatState(state.chat)
+      }
+    }
+
+    // Apply WhatsApp Helper page state
+    applyAutoreplyState(autoreplyState) {
+      // Restore global variables
+      if (autoreplyState.currentChat) window.currentChat = autoreplyState.currentChat
+      if (autoreplyState.lastAIResult) window.lastAIResult = autoreplyState.lastAIResult
+      if (autoreplyState.chatHistories) window.chatHistories = autoreplyState.chatHistories
+      if (autoreplyState.currentSlide !== undefined) window.currentSlide = autoreplyState.currentSlide
+
+      // Restore tracking states
+      window.isAutoTracking = autoreplyState.isAutoTracking || false
+      window.isManualTracking = autoreplyState.isManualTracking || false
+
+      // Restore auto tracking if it was active
+      if (window.isAutoTracking) {
+        const autoTrackingBtn = document.getElementById("auto-tracking-btn")
+        if (autoTrackingBtn) {
+          autoTrackingBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="6" width="12" height="12"></rect>
+            </svg>
+            Stop Auto Tracking
+          `
+          autoTrackingBtn.classList.add("btn-danger")
+        }
+
+        // Restart the auto tracking interval
+        if (!window.autoTrackingInterval) {
+          window.autoTrackingInterval = setInterval(runAutoTrackingCycle, window.autoTrackingDelay)
+        }
+      }
+
+      // Update button states
+      const updateTrackingButtonStates = window.updateTrackingButtonStates
+      if (typeof updateTrackingButtonStates === "function") {
+        updateTrackingButtonStates()
+      }
+
+      // Restore status text
+      const statusTextElement = document.getElementById("status")
+      if (statusTextElement && autoreplyState.statusText) {
+        statusTextElement.textContent = autoreplyState.statusText
+      }
+
+      // Restore AI response visibility
+      const aiResponseContainerElement = document.getElementById("ai-response-container")
+      if (aiResponseContainerElement) {
+        if (autoreplyState.showingAIResponse) {
+          aiResponseContainerElement.classList.remove("hidden")
+        } else {
+          aiResponseContainerElement.classList.add("hidden")
+        }
+      }
+
+      // Re-render AI response if available
+      if (window.lastAIResult) {
+        const renderAIResponse = window.renderAIResponse
+        if (typeof renderAIResponse === "function") {
+          renderAIResponse(window.lastAIResult)
+        }
+      }
+
+      // Re-initialize carousel
+      if (typeof window.initCarousel === "function") {
+        window.initCarousel()
+      }
+    }
+
+    // Apply Test Chat page state
+    applyChatState(chatState) {
+      // Restore chat history
+      const chatHistoryElement = document.getElementById("chat-history")
+      if (chatHistoryElement) {
+        chatHistoryElement.innerHTML = "" // Clear existing chat history
+        chatState.chatHistory.forEach((message) => {
+          if (typeof window.addChatMessage === "function") {
+            window.addChatMessage(message.messageContent, message.isUser)
+          }
+        })
+      }
+
+      // Restore global variables
+      if (chatState.lastChatAIResult) window.lastChatAIResult = chatState.lastChatAIResult
+      if (chatState.currentChatMessage) window.currentChatMessage = chatState.currentChatMessage
+
+      // Restore AI response visibility
+      const aiResponseContainerElement = document.getElementById("ai-response-container2")
+      if (aiResponseContainerElement) {
+        if (chatState.showingAIResponse) {
+          aiResponseContainerElement.classList.remove("hidden")
+        } else {
+          aiResponseContainerElement.classList.add("hidden")
+        }
+      }
+    }
+  }
+}
+
+// Initialize state manager
+if (typeof window.stateManager === "undefined" && typeof StateManager !== "undefined") {
+  window.stateManager = new StateManager()
+}

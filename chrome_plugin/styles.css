@@ -224,6 +224,16 @@ body {
   background-color: var(--accent);
 }
 
+/* Button Group */
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.button-group .btn {
+  flex: 1;
+}
+
 /* Response Box */
 .response-box {
   background-color: var(--card);
