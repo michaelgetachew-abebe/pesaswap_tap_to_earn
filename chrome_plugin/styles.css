@@ -161,8 +161,11 @@ body {
 
 .status-text {
   font-size: 14px;
-  color: var(--muted-foreground);
+  font-weight: 500;
+  color: var(--foreground);
   margin: 0;
+  flex: 1;
+  margin-right: 8px;
 }
 
 /* Buttons */
@@ -232,6 +235,19 @@ body {
 
 .button-group .btn {
   flex: 1;
+}
+
+/* Add these new styles for the tracking buttons after the .button-group styles */
+
+/* Tracking Buttons - Smaller size and font */
+.button-group .btn.tracking-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.button-group .btn.tracking-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Response Box */
@@ -774,4 +790,3 @@ body {
 .btn-icon:hover {
   background-color: var(--accent);
 }
-

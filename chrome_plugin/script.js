@@ -894,6 +894,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Auto tracking functions
+  // Update the startAutoTracking function to maintain the tracking-btn class
   function startAutoTracking() {
     if (window.isAutoTracking) return
 
@@ -906,11 +907,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (autoTrackingBtn) {
       autoTrackingBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="6" y="6" width="12" height="12"></rect>
-        </svg>
-        Stop Auto Tracking
-      `
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="6" width="12" height="12"></rect>
+      </svg>
+      Stop Auto
+    `
       autoTrackingBtn.classList.add("btn-danger")
     }
 
@@ -928,6 +929,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Update the stopAutoTracking function to maintain the tracking-btn class
   function stopAutoTracking() {
     if (!window.isAutoTracking) return
 
@@ -940,12 +942,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (autoTrackingBtn) {
       autoTrackingBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polygon points="10 8 16 12 10 16 10 8"></polygon>
-        </svg>
-        Auto Tracking
-      `
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polygon points="10 8 16 12 10 16 10 8"></polygon>
+      </svg>
+      Auto
+    `
       autoTrackingBtn.classList.remove("btn-danger")
     }
 
@@ -1300,20 +1302,21 @@ if (typeof StateManager === "undefined") {
       window.isManualTracking = autoreplyState.isManualTracking || false
 
       // Restore auto tracking if it was active
+      // Update the applyAutoreplyState function to maintain the tracking-btn class
       if (window.isAutoTracking) {
         const autoTrackingBtn = document.getElementById("auto-tracking-btn")
         if (autoTrackingBtn) {
           autoTrackingBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="6" y="6" width="12" height="12"></rect>
-            </svg>
-            Stop Auto Tracking
-          `
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="6" width="12" height="12"></rect>
+      </svg>
+      Stop Auto
+    `
           autoTrackingBtn.classList.add("btn-danger")
         }
 
         // Restart the auto tracking interval
-        if (!window.autoTrackingInterval) {
+        if (!window.autoTrackingInterval && typeof runAutoTrackingCycle === "function") {
           window.autoTrackingInterval = setInterval(runAutoTrackingCycle, window.autoTrackingDelay)
         }
       }
