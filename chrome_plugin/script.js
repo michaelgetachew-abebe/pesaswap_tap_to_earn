@@ -349,33 +349,43 @@ document.addEventListener("DOMContentLoaded", () => {
       if (unreadChats.length === 0) {
         console.log("No chats with unread messages found.")
         if (statusText) statusText.textContent = "No unread messages to click."
-        return
+        return null
       }
 
-      for (const chat of unreadChats) {
-        console.log(`Attempting to click chat at index ${chat.index}`)
-        await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          func: (index) => {
-            // const chatList = document.querySelector('div[aria-label="Chat list"]')
-            const chatList = document.querySelector(
-              document.documentElement.lang === "en" ? 'div[aria-label="Chat list"]' : 'div[aria-label="Список чатов"]',
-            )
-            if (!chatList) throw new Error("Chat list not found!")
-            const chatElement = chatList.childNodes[index]
-            if (!chatElement) throw new Error(`Chat element at index ${index} not found!`)
-            chatElement.click()
-          },
-          args: [chat.index],
-        })
-        console.log(`Clicked chat at index ${chat.index}`)
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
+      // Only click the first unread chat
+      const chatToClick = unreadChats[0]
+      console.log(`Attempting to click chat at index ${chatToClick.index}`)
 
-      if (statusText) statusText.textContent = "Finished clicking unread chats!"
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: (index) => {
+          const chatList = document.querySelector(
+            document.documentElement.lang === "en" ? 'div[aria-label="Chat list"]' : 'div[aria-label="Список чатов"]',
+          )
+          if (!chatList) throw new Error("Chat list not found!")
+          const chatElement = chatList.childNodes[index]
+          if (!chatElement) throw new Error(`Chat element at index ${index} not found!`)
+          chatElement.click()
+          return true
+        },
+        args: [chatToClick.index],
+      })
+
+      console.log(`Clicked chat at index ${chatToClick.index}`)
+
+      // Wait for WhatsApp to mark the message as read
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Mark the chat as read in our local data
+      chatToClick.unread_count = "0"
+
+      if (statusText) statusText.textContent = "Clicked unread chat!"
+
+      return chatToClick
     } catch (error) {
       console.error("Click error:", error)
       if (statusText) statusText.textContent = error.message || "Error clicking chat elements"
+      return null
     }
   }
 
@@ -417,34 +427,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Extract Full Chat History
-  async function extractFullChatHistory(tabId, unreadChats) {
+  async function extractFullChatHistory(tabId, chatToProcess) {
     try {
-      if (statusText) statusText.textContent = "Extracting full chat histories..."
+      if (statusText) statusText.textContent = "Extracting chat history..."
 
       const results = await chrome.scripting.executeScript({
         target: { tabId: tabId },
-        func: (unreadChatsSerialized) => {
-          const unreadChats = JSON.parse(unreadChatsSerialized)
-
-          async function simulateFullClick(element, index) {
-            return new Promise((resolve) => {
-              element.scrollIntoView({ behavior: "smooth", block: "center" })
-              const clickable = element.querySelector('span[dir="auto"]') || element
-              const rect = clickable.getBoundingClientRect()
-              const x = rect.left + rect.width / 2
-              const y = rect.top + rect.height / 2
-
-              const events = [
-                new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }),
-                new MouseEvent("click", { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }),
-                new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }),
-              ]
-
-              events.forEach((event) => clickable.dispatchEvent(event))
-              setTimeout(resolve, 5000) // Wait 5 seconds
-            })
-          }
+        func: (chatSerialized) => {
+          const chat = JSON.parse(chatSerialized)
 
           async function extractChatMessages(chatName) {
             const messagesContainer = await new Promise((resolve) => {
@@ -495,50 +485,29 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           return new Promise(async (resolve) => {
-            const chatHistories = {}
-            // const chatList = document.querySelector('div[aria-label="Chat list"]')
-            const chatList = document.querySelector(
-              document.documentElement.lang === "en" ? 'div[aria-label="Chat list"]' : 'div[aria-label="Список чатов"]',
-            )
-            if (!chatList) {
-              resolve({ error: "Chat list not found!" })
-              return
-            }
-
-            for (const chat of unreadChats) {
-              const chatElement = chatList.childNodes[chat.index]
-              if (!chatElement) {
-                chatHistories[chat.contact_name] = { error: `Chat element at index ${chat.index} not found!` }
-                continue
-              }
-
-              await simulateFullClick(chatElement, chat.index)
-              const messages = await extractChatMessages(chat.contact_name)
-              chatHistories[chat.contact_name] = messages
-            }
-
-            resolve(chatHistories)
+            const messages = await extractChatMessages(chat.contact_name)
+            resolve({ [chat.contact_name]: messages })
           })
         },
-        args: [JSON.stringify(unreadChats)],
+        args: [JSON.stringify(chatToProcess)],
       })
 
-      const extractedChatHistories = results[0].result
-      console.log("Extracted chat histories:", extractedChatHistories)
-      if (statusText) statusText.textContent = "Chat histories extracted successfully!"
+      const extractedChatHistory = results[0].result
+      console.log("Extracted chat history:", extractedChatHistory)
+      if (statusText) statusText.textContent = "Chat history extracted successfully!"
 
-      // Store chat histories globally
-      window.chatHistories = extractedChatHistories
+      // Store chat history globally
+      window.chatHistories = { ...window.chatHistories, ...extractedChatHistory }
 
-      // Save state after extracting chat histories
+      // Save state after extracting chat history
       if (window.stateManager) {
         window.stateManager.saveState()
       }
 
-      return extractedChatHistories
+      return extractedChatHistory
     } catch (error) {
       console.error("Chat history extraction error:", error)
-      if (statusText) statusText.textContent = "Error extracting chat histories"
+      if (statusText) statusText.textContent = "Error extracting chat history"
       return { error: error.message }
     }
   }
@@ -598,7 +567,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const recent_timestamp = chatParts[1] || ""
                 const message = chatParts[2] || ""
                 const other_details = chatParts.slice(3).join(" ") || ""
-                // const unreadBadge = child.querySelector('span[aria-label*="unread"]')
                 const unreadBadge = child.querySelector(
                   document.documentElement.lang === "en"
                     ? 'span[aria-label*="unread"]'
@@ -641,45 +609,41 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      const unreadChats = chatData.filter((chat) => Number.parseInt(chat.unread_count) > 0)
-      if (unreadChats.length > 0) {
+      // Click on the first unread chat and process it
+      const clickedChat = await clickChatElement(tab.id, chatData)
+
+      if (clickedChat) {
         if (statusText) {
           if (window.isAutoTracking) {
-            statusText.textContent = "Auto tracking: Processing unread chats..."
+            statusText.textContent = "Auto tracking: Processing unread chat..."
           } else {
-            statusText.textContent = "Processing unread chats..."
+            statusText.textContent = "Processing unread chat..."
           }
         }
 
-        // Click chats and extract full histories first
-        await clickChatElement(tab.id, chatData)
-        await extractFullChatHistory(tab.id, unreadChats)
+        // Extract chat history for the clicked chat
+        await extractFullChatHistory(tab.id, clickedChat)
 
-        // Process only the first unread chat for AI response
-        for (const chat of unreadChats) {
-          window.currentChat = chat
+        // Set current chat and display its history
+        window.currentChat = clickedChat
+        window.displayChatHistory(clickedChat.contact_name)
 
-          // Display chat-specific history for this contact
-          window.displayChatHistory(chat.contact_name)
+        // Set loading spinner text for initial generation
+        updateLoadingSpinnerText(loadingSpinnerMain, false)
+        if (loadingSpinnerMain) loadingSpinnerMain.classList.remove("hidden")
 
-          // Set loading spinner text for initial generation
-          updateLoadingSpinnerText(loadingSpinnerMain, false)
-          if (loadingSpinnerMain) loadingSpinnerMain.classList.remove("hidden")
+        // Send to AI for processing
+        const aiResult = await sendToAIAgent(clickedChat, agentPersona)
 
-          const aiResult = await sendToAIAgent(chat, agentPersona)
+        if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
 
-          if (loadingSpinnerMain) loadingSpinnerMain.classList.add("hidden")
+        window.lastAIResult = aiResult
+        renderAIResponse(aiResult)
+        console.log(`Processed chat with message: ${clickedChat.message}`)
 
-          window.lastAIResult = aiResult
-          renderAIResponse(aiResult)
-          console.log(`Sent chat with ${chat.unread_count} unread messages to webhook`)
-
-          // Save state after processing chat
-          if (window.stateManager) {
-            window.stateManager.saveState()
-          }
-
-          break // Process only the first unread chat for AI response
+        // Save state after processing chat
+        if (window.stateManager) {
+          window.stateManager.saveState()
         }
 
         if (statusText) {
@@ -970,6 +934,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       if (statusText) statusText.textContent = "Auto tracking: Checking for unread messages..."
+
+      // Add a verification step to check if there are any pending AI responses
+      if (window.currentChat && !aiResponseContainer.classList.contains("hidden")) {
+        if (statusText) statusText.textContent = "Auto tracking: Waiting for operator to handle current response..."
+        return
+      }
 
       await extractChatData()
 
