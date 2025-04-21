@@ -6,12 +6,16 @@ from sqlalchemy.orm import sessionmaker
 # "postgresql://user:pass@localhost:5432/agents_db"
 
 DATABASE_URL = "postgresql://user:pass@127.0.0.1:5432/whatsapp_db"
+DATABASE_URL2 = "postgresql://postgres:postgres@db.wubzepjinpeokhfyzxws.supabase.co:5432/postgres"
 
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
-def get_db():
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+Base2 = declarative_base()
+
+def get_local_db():
     db = SessionLocal()
     try:
         yield db

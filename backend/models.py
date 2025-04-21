@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, Float, String, Enum, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Float, String, Enum, Boolean, DateTime, ForeignKey, CheckConstraint, Index, desc
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel
-from passlib.context import CryptContext # type: ignore
-from database import Base
+from pydantic import BaseModel, field_validator
+from passlib.context import CryptContext #type: ignore
+from database import Base, Base2  # Import Base2 for Supabase models
 from datetime import datetime
+from typing import Optional
 import enum
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -23,7 +24,7 @@ class Personas(enum.Enum):
     AshlynnReyes = "AshlynnReyes"
     AnnaVasilenko = "AnnaVasilenko"
     AmeliaNixon = "AmeliaNixon"
-    LenaLinderborg = "LenaLinderborg"
+    LenaLindberg = "LenaLindberg"
     AnastasiyaJohansson = "AnastasiyaJohansson"
     RosieRangel = "RosieRangel"
     NatashaSokolova = "NatashaSokolova"
@@ -32,6 +33,7 @@ class Entities(enum.Enum):
     user = "user"
     ai = "ai"
 
+# Local Database Models (using Base)
 class Agent(Base):
     __tablename__ = "agents"
     id = Column(Integer, primary_key=True, index=True)
@@ -48,37 +50,32 @@ class AgentSessionDetails(Base):
     recent_logout = Column(DateTime, nullable=True)
     total_active_time = Column(Integer, default=0)
     agent = relationship("Agent", back_populates="session_details")
-
-class User(Base):
+    
+class UserORM(Base):
     __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True)
-    firstname = Column(String, nullable=True)
-    lastname = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(Enum(FriendshipStatus), nullable=True)
-    friendship_statistical_score = Column(Float, nullable=True)
-    friendship_detail_score = Column(Float, nullable=True)
-    messages = relationship("Message", back_populates="user")
-    sessions = relationship("ChatSession", back_populates="user")
+    user_id = Column(String(255), primary_key=True)
+    name = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    sex = Column(String, nullable=True)
+    language = Column(String, nullable=True)
+    alias = Column(String, nullable=True)
+    geography = Column(String, nullable=True)
+    messages = relationship("MessageORM", order_by="MessageORM.timestamp", back_populates="user")
 
-class Message(Base):
+class MessageORM(Base):
     __tablename__ = "messages"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
-    sender = Column(Enum(Entities), nullable=False)
-    message_text = Column(String, nullable=False)
-    timestamp = Column(DateTime, nullable=False)
-    user = relationship("User", back_populates="messages")
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(255), ForeignKey("users.user_id"), nullable=False)
+    sender = Column(String(10), nullable=False)
+    content = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    user = relationship("UserORM", back_populates="messages")
+    __table_args__ = (
+    CheckConstraint("sender IN ('user', 'ai')", name="check_sender"),
+    Index('idx_messages_user_id_timestamp', 'user_id', desc('timestamp')),
+)
 
-class ChatSession(Base):
-    __tablename__ = "chatsessions"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
-    duration_minutes = Column(Integer, nullable=False)
-    user = relationship("User", back_populates="sessions")
-
+# Pydantic Models for API
 class LoginRequest(BaseModel):
     agentname: str
     password: str
@@ -95,7 +92,38 @@ class LoginResponse(BaseModel):
     token: str
     agent: AgentInfo
 
-class MessageCreate(BaseModel):
+class User(BaseModel):
+    user_id: str
+    name: Optional[str] = None
+    age: Optional[int] = None
+    sex: Optional[str] = None
+    language: Optional[str] = None
+    alias: Optional[str] = None
+    geography: Optional[str] = None
+
+class TranslationRequest(BaseModel):
+    content: str
+    source_lang: str
+    target_lang: str
+
+class Message(BaseModel):
+    user_id: str
+    sender: str  # 'user' or 'ai'
+    content: str
+    timestamp: Optional[datetime] = None
+
+    @field_validator('sender')
+    def sender_must_be_user_or_ai(cls, v):
+        if v not in ['user', 'ai']:
+            raise ValueError('sender must be "user" or "ai"')
+        return v
+
+class MessageResponse(BaseModel):
+    id: int
+    user_id: str
     sender: str
-    message_text: str
-    timestamp: datetime = None
+    content: str  # <- match the ORM model
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True

@@ -1,13 +1,15 @@
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, WebSocketDisconnect # type: ignore
 from sqlalchemy.orm import Session
 import logging
+from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from datetime import datetime
 
-from database import Base, engine, get_db, SessionLocal
-from models import LoginRequest, LoginResponse, LogoutRequest, MessageCreate, Agent, AgentSessionDetails, User, Message
+from database import Base, engine, get_local_db, SessionLocal
+from models import LoginRequest, LoginResponse, LogoutRequest, Agent, AgentSessionDetails, User, Message, TranslationRequest, UserORM, MessageORM, MessageResponse
 from auth import authenticate_agent, create_jwt_token, verify_jwt_token
 from friendship import calculate_friendship_score, calculate_friendship_score_zep
+from translator import translate_text
 
 from seed_db import seed_data
 
@@ -50,7 +52,7 @@ def handle_logout(agent_id: int, db: Session):
         db.commit()
 
 @app.post("/login", response_model=LoginResponse)
-def login(login: LoginRequest, db: Session = Depends(get_db)):
+def login(login: LoginRequest, db: Session = Depends(get_local_db)):
     logger.info(f"Agent {login.agentname} attempting to login")
     agent = authenticate_agent(login, db)
     if not agent:
@@ -71,7 +73,7 @@ def login(login: LoginRequest, db: Session = Depends(get_db)):
     return {"token": token, "agent": {"id": agent.id, "agentname": agent.agentname, "persona": agent.persona}}
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
+async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_local_db)):
     token = websocket.query_params.get("token")
     if not token:
         logger.warning("No token provided for WebSocket connection")
@@ -113,51 +115,97 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
         await websocket.close(code=1011)
 
 @app.post("/logout")
-def logout(logout: LogoutRequest, db: Session = Depends(get_db)):
+def logout(logout: LogoutRequest, db: Session = Depends(get_local_db)):
     agent_id = logout.agent_id
     handle_logout(agent_id, db)
     logger.info(f"Agent {agent_id} logged out successfully")
     return {"message": "Logged out successfully"}
 
-@app.post("/messages/{user_id}")
-def create_message(user_id: int, message: MessageCreate, db: Session = Depends(get_db)):
-    # Just for now nut remove it for future
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Check consistency of server and frontend timestamps
-    db_message = Message(
-        user_id=user_id,
-        sender=message.sender,
-        message_text=message.message_text,
-        timestamp=message.timestamp
-    )
+# New Implementations
 
+@app.get("/messages/get/{user_id}", response_model=List[MessageResponse])
+def get_messages(user_id: str, limit: int = 20, db: Session = Depends(get_local_db)):
+    return db.query(MessageORM).filter_by(user_id=user_id).order_by(MessageORM.timestamp.desc()).limit(limit).all()
+
+@app.post("/messages/", response_model=MessageResponse)
+def post_message(message: Message, db: Session = Depends(get_local_db)):
+    if message.sender not in ["user", "ai"]:
+        raise HTTPException(status_code=400, detail="Sender must be 'user' or 'ai'")
+    db_message = MessageORM(**message.dict())
+    if db_message.timestamp is None:
+        db_message.timestamp = datetime.utcnow()
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
+    return db_message
 
-    return {"id": db_message.id, "user_id": user_id, "sender": message.sender, "message": message.message_text, "timestamp": message.timestamp}
+@app.delete("/messages/{user_id}/{message_id}", response_model=dict)
+def delete_message(user_id: str, message_id: int, db: Session = Depends(get_local_db)):
+    message = (db.query(MessageORM).filter_by(id=message_id, user_id=user_id)).first()
 
+    if not message:
+        raise HTTPException(status_code=404, detail=f"No message #{message_id} found for user {user_id}")
+    
+    db.delete(message)
+    db.commit()
+    return {"deleted": True}
+    
 
-@app.get("/check_new_user/{user_id}") # Check if the user is new or not - > * If new * If not new
-def check_new_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if user is None:
-        user = User(
-            user_id=user_id
-        )
+@app.delete("/messages/last-ai/{user_id}", response_model=dict)
+def delete_latest_ai_message(user_id: str, db: Session = Depends(get_local_db)):
+    # Get the most recent message sent by 'ai' for this user
+    message = (
+        db.query(MessageORM)
+        .filter_by(user_id=user_id, sender="ai")
+        .order_by(MessageORM.timestamp.desc())
+        .first()
+    )
 
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    if not message:
+        raise HTTPException(status_code=404, detail="No AI messages found for this user")
+
+    db.delete(message)
+    db.commit()
+    return {"deleted": True, "deleted_message_id": message.id}
+
+@app.post("/users")
+def upsert_user(user: User, db: Session = Depends(get_local_db)):
+    db_user = db.query(UserORM).filter_by(user_id=user.user_id).first()
+    if db_user:
+        for field, value in user.dict(exclude_unset=True).items():
+            setattr(db_user, field, value)
     else:
-        return {"user": "exists"}
+        db_user = UserORM(**user.dict())
+        db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.get("/users/{user_id}/exists", response_model=dict)
+def user_exists(user_id: str, db: Session = Depends(get_local_db)):
+    exists = db.query(UserORM).filter_by(user_id=user_id).first() is not None
+    return {"exists": exists}
+
+
+@app.get("/users/{user_id}/language", response_model=dict)
+def get_user_language(user_id: str, db: Session = Depends(get_local_db)):
+    user = db.query(UserORM).filter_by(user_id=user_id).first()
+    if not user:
+        return {"language": None}
+    return {"language": user.language}
+
+@app.post("/translate")
+async def translate(req: TranslationRequest):
+    translated = await translate_text(
+        content=req.content,
+        source_lang=req.source_lang,
+        target_lang=req.target_lang
+    )
+    return {"translated_content": translated}
 
 
 @app.get("/friendship-statistical-score/{user_id}")
-def get_friendship_statistical_score(user_id: int, db: Session = Depends(get_db)):
+def get_friendship_statistical_score(user_id: int, db: Session = Depends(get_local_db)):
     score = calculate_friendship_score(db, user_id, datetime.now(datetime.timetz.utc))
     return {"user_id": user_id, "statistical_friendship_score": score}
 
@@ -165,3 +213,8 @@ def get_friendship_statistical_score(user_id: int, db: Session = Depends(get_db)
 def get_friendship__score(user_id: int):
     score = calculate_friendship_score_zep(user_id=user_id)
     return {"user_id": user_id, "zep_friendship_score": score}
+
+
+@app.get("/extract_chat_details")
+def extract_chat_details():
+    pass
