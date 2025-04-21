@@ -5,8 +5,7 @@ from sqlalchemy.orm import sessionmaker
 # "postgresql://user:pass@145.223.18.225:5432/agents_db"
 # "postgresql://user:pass@localhost:5432/agents_db"
 
-DATABASE_URL = "postgresql://user:pass@127.0.0.1:5432/whatsapp_db"
-DATABASE_URL2 = "postgresql://postgres:postgres@db.wubzepjinpeokhfyzxws.supabase.co:5432/postgres"
+DATABASE_URL = "postgresql://user:pass@postgres-db:5432/whatsapp_db"
 
 engine = create_engine(DATABASE_URL)
 
