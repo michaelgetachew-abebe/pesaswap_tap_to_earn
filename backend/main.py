@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, WebSocketDisconnect # type: ignore
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session #type:ignore
 import logging
 from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
@@ -151,7 +151,7 @@ def delete_message(user_id: str, message_id: int, db: Session = Depends(get_loca
     return {"deleted": True}
     
 
-@app.delete("/messages/last-ai/{user_id}", response_model=dict)
+@app.delete("/messages/delete/last-ai/{user_id}", response_model=dict)
 def delete_latest_ai_message(user_id: str, db: Session = Depends(get_local_db)):
     # Get the most recent message sent by 'ai' for this user
     message = (
