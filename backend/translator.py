@@ -13,7 +13,7 @@ async def translate_text(content: str, source_lang: str, target_lang: str, model
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": "http://localhost",  # update this to your domain if using in prod, STH like "HTTP-Referer": "https://api.myconeapp.com"
+        "HTTP-Referer": "https://api.srv768692.hstgr.cloud",
         "X-Title": "ConeTranslation"
     }
 
