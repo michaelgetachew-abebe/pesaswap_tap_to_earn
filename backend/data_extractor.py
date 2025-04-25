@@ -24,7 +24,7 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": "http://localhost",  # update this to your domain if using in prod, STH like "HTTP-Referer": "https://api.myconeapp.com"
+        "HTTP-Referer": "https://api.srv768692.hstgr.cloud",  # update this to your domain if using in prod, STH like "HTTP-Referer": "https://api.myconeapp.com"
         "X-Title": "ConeTranslation"
     }
 

@@ -1,3 +1,5 @@
+import httpx
+
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, WebSocketDisconnect # type: ignore
 from sqlalchemy.orm import Session #type:ignore
 import logging
@@ -6,10 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from datetime import datetime
 
 from database import Base, engine, get_local_db, SessionLocal
-from models import LoginRequest, LoginResponse, LogoutRequest, Agent, AgentSessionDetails, User, Message, TranslationRequest, UserORM, MessageORM, MessageResponse
+from models import LoginRequest, LoginResponse, LogoutRequest, Agent, AgentSessionDetails, User, Message, TranslationRequest, UserORM, MessageORM, MessageResponse, ChatDetailsRequest
 from auth import authenticate_agent, create_jwt_token, verify_jwt_token
 from friendship import calculate_friendship_score, calculate_friendship_score_zep
 from translator import translate_text
+from data_extractor import extract_unread
 
 from seed_db import seed_data
 
@@ -216,5 +219,14 @@ def get_friendship__score(user_id: int):
 
 
 @app.get("/extract_chat_details")
-def extract_chat_details():
-    pass
+async def extract_chat_details(request: ChatDetailsRequest):
+    try:
+        # Call the extract_unread function with the provided HTML and model
+        result = await extract_unread(input_html=request.html, model=request.model)
+        return {"status": "success", "data": result}
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"OpenRouter API error: {e.response.text}")
+    except KeyError as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected API response format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
