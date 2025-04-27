@@ -1,11 +1,12 @@
-import httpx
-
 from fastapi import FastAPI, Depends, WebSocket, HTTPException, WebSocketDisconnect # type: ignore
-from sqlalchemy.orm import Session #type:ignore
+from sqlalchemy.orm import Session
 import logging
 from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from datetime import datetime
+
+from fastapi import FastAPI, HTTPException # type: ignore
+from fastapi.responses import JSONResponse # type: ignore
 
 from database import Base, engine, get_local_db, SessionLocal
 from models import LoginRequest, LoginResponse, LogoutRequest, Agent, AgentSessionDetails, User, Message, TranslationRequest, UserORM, MessageORM, MessageResponse, ChatDetailsRequest
@@ -15,6 +16,8 @@ from translator import translate_text
 from data_extractor import extract_unread
 
 from seed_db import seed_data
+
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -222,9 +225,7 @@ def get_friendship__score(user_id: int):
 async def extract_chat_details(request: ChatDetailsRequest):
     try:
         result = await extract_unread(input_html=request.request)
-        import json
-        parsed_result = json.loads(result)
-        return parsed_result
+        return result
     except json.JSONDecodeError:
         raise HTTPException(status_code=502, detail="Invalid JSON response from OpenRouter API")
     except ValueError as e:

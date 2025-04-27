@@ -1,14 +1,12 @@
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException #type: ignore
 
-OPENROUTER_API_KEY = "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"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = ""
+DEFAULT_MODEL = "openai/gpt-4o-mini"
 
 async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
     prompt = (
         "You are a JSON-only extractor. Given the raw HTML of a single WhatsApp Web chat list item, output a JSON object that strictly follows the following schema:\n"
-        "```json\n"
         "{\n"
         '    "message": [\n'
         "        {\n"
@@ -19,7 +17,6 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
         "        }\n"
         "    ]\n"
         "}\n"
-        "```\n"
         "Rules:\n"
         "1. Return only valid JSON—no explanations, no extra keys.\n"
         "2. If any field is missing, use null for its value.\n"
@@ -33,7 +30,7 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
     )
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer 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",
         "HTTP-Referer": "https://api.srv768692.hstgr.cloud",
         "X-Title": "ConeTranslation"
     }
