@@ -1,6 +1,7 @@
 import httpx
 from fastapi import HTTPException #type: ignore
 
+OPENROUTER_API_URL = "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"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
@@ -30,7 +31,7 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
     )
 
     headers = {
-        "Authorization": f"Bearer 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",
+        "Authorization": f"Bearer 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",
         "HTTP-Referer": "https://api.srv768692.hstgr.cloud",
         "X-Title": "ConeTranslation"
     }
