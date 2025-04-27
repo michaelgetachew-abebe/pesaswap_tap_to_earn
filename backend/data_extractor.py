@@ -1,4 +1,5 @@
 import httpx
+from fastapi import HTTPException
 
 OPENROUTER_API_KEY = "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"
 
@@ -7,24 +8,29 @@ DEFAULT_MODEL = ""
 
 async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
     prompt = (
-        f"You are a JSON-only extractor. Given the raw HTML of WhatsApp Web message containers, find every message and output a single JSON object that strcicly follows this schema:"
+        f"You are a JSON-only extractor. Given the raw HTML of a single WhatsApp Web chat list item, output a JSON object that strictly follows the following schema:"
         f"""
-            {"message": 
-                [
-                    {"sender": string, // the name in the span[@title]
-                     "timestamp": string, // the timestamp/day of the week/time of the day/time describing word,
-                     "text": string // the message content
+            {
+                "message": [
+                    {
+                    "sender": "string",  // the contact name
+                    "timestamp": "string",  // the time of the last message
+                    "text": "string",  // the preview of the last message
+                    "unread_message": "int"  // the number of unread messages, or null if not present
                     }
                 ]
-            }
+                }
         """
-        f"Rules:\n 1. Return only valid JSON-no explanations, no extra keys.\n 2. If any field is missing, use null for its value. \n 3. Process all messages present in the HTML"
-        f"\n\nINPUT HTML: {input_html}"
+        f"Rules:\n 1. Return only valid JSON—no explanations, no extra keys.\n 2. If any field is missing, use null for its value.\n 3. The sender, timestamp, and text should be strings extracted as text content, and unread_message should be an integer if present, otherwise null."
+        f"Extraction Instructions:\n"
+
+        f"- Sender: Look for a `span` element with a `title` attribute that contains the contact's name. This is typically the first prominent text in the chat item.\n- Timestamp: Identify a text element that appears to be a time or date, often located near the sender's name or at the end of the chat item. It might be contained within a `div` or `span`.\n- Text (Message Preview): Look for a `span` with a `title` attribute that contains the preview of the last message. This is usually located below or next to the sender's name and timestamp.\n- Unread Message Count: Search for a `span` with an `aria-label` attribute that includes the phrase "unread message" or similar. The text content of this span should be a number indicating the unread count, converted to an integer. If no such span exists, use null.\n\n"
+        f"Now, extract the information from the following HTML:\n:  {input_html}"
     )
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": "https://api.srv768692.hstgr.cloud",  # update this to your domain if using in prod, STH like "HTTP-Referer": "https://api.myconeapp.com"
+        "HTTP-Referer": "https://api.srv768692.hstgr.cloud",
         "X-Title": "ConeTranslation"
     }
 
@@ -36,7 +42,14 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
         ]
     }
 
-    async with httpx.AsyncClient(verify=False) as client:
-        response = await client.post(OPENROUTER_API_URL, headers=headers, json=data)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(OPENROUTER_API_URL, headers=headers, json=data)
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"OpenRouter API error: {e.response.text}")
+    except (KeyError, IndexError) as e:
+        raise HTTPException(status_code=502, detail=f"Unexpected API response format: {str(e)}")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Network error while contacting OpenRouter API: {str(e)}")

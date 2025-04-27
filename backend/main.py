@@ -218,15 +218,16 @@ def get_friendship__score(user_id: int):
     return {"user_id": user_id, "zep_friendship_score": score}
 
 
-@app.get("/extract_chat_details")
+@app.post("/extract_chat_details")
 async def extract_chat_details(request: ChatDetailsRequest):
     try:
-        # Call the extract_unread function with the provided HTML and model
-        result = await extract_unread(input_html=request.html, model=request.model)
-        return {"status": "success", "data": result}
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"OpenRouter API error: {e.response.text}")
-    except KeyError as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected API response format: {str(e)}")
+        result = await extract_unread(input_html=request.request)
+        import json
+        parsed_result = json.loads(result)
+        return parsed_result
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Invalid JSON response from OpenRouter API")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Response validation error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
