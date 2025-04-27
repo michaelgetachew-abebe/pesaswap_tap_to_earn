@@ -21,6 +21,11 @@ from translator import translate_text
 from data_extractor import extract_unread
 from seed_db import seed_data
 
+from fastapi import FastAPI, Header, HTTPException
+import logging
+
+app = FastAPI()
+
 # Configure logging with detailed format
 logging.basicConfig(
     level=logging.DEBUG,
@@ -392,16 +397,28 @@ def get_friendship_score(user_id: int):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/extract_chat_details")
-async def extract_chat_details(request: ChatDetailsRequest):
+async def extract_chat_details(request: ChatDetailsRequest, authorization: str = Header(...)):
     logger.info(f"Extracting chat details from input_html (first 50 chars): {request.request[:50]}...")
+   
+    if not authorization.startswith("Bearer "):
+        logger.error("Invalid Authorization header: Must start with 'Bearer '")
+        raise HTTPException(status_code=401, detail="Invalid Authorization header: Must start with 'Bearer '")
+    
+    api_key = authorization.replace("Bearer ", "").strip()
+   
+    model = "openai/gpt-4o-mini"
+    logger.info(f"Using model: {model}")
+
     try:
         logger.debug("Calling extract_unread function")
-        result = await extract_unread(input_html=request.request)
+        json_string = await extract_unread(input_html=request.request, token=api_key, model=model)
+        # Parse JSON string to return a Python dictionary
+        result = json.loads(json_string)
         logger.info(f"Chat details extracted successfully: result={json.dumps(result, default=str)[:100]}...")
         return result
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error during chat details extraction: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=502, detail="Invalid JSON response from OpenRouter API")
+        raise HTTPException(status_code=502, detail=f"Invalid JSON response from OpenRouter API: {str(e)}")
     except ValueError as e:
         logger.error(f"Validation error during chat details extraction: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Response validation error: {str(e)}")

@@ -1,11 +1,12 @@
 import httpx
-from fastapi import HTTPException #type: ignore
+import json
+from fastapi import HTTPException
+import os
 
-OPENROUTER_API_URL = "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"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
-async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
+async def extract_unread(input_html: str, token: str, model: str = DEFAULT_MODEL) -> str:
     prompt = (
         "You are a JSON-only extractor. Given the raw HTML of a single WhatsApp Web chat list item, output a JSON object that strictly follows the following schema:\n"
         "{\n"
@@ -19,7 +20,7 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
         "    ]\n"
         "}\n"
         "Rules:\n"
-        "1. Return only valid JSON—no explanations, no extra keys.\n"
+        "1. Return only valid JSONno explanations, no extra keys.\n"
         "2. If any field is missing, use null for its value.\n"
         "3. The sender, timestamp, and text should be strings extracted as text content, and unread_message should be an integer if present, otherwise null.\n"
         "Extraction Instructions:\n"
@@ -30,10 +31,14 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
         f"Now, extract the information from the following HTML:\n{input_html}"
     )
 
+    if not token.startswith("Bearer "):
+        token = f"Bearer {token}"
+
     headers = {
-        "Authorization": f"Bearer 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",
-        "HTTP-Referer": "srv768692.hstgr.cloud",
-        "X-Title": "ConeTranslation"
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "HTTP-Referer": os.getenv("HTTP_REFERER", "https://api.srv768692.hstgr.cloud"),
+        "X-Title": os.getenv("X_TITLE", "ConeTranslation")
     }
 
     data = {
@@ -45,13 +50,17 @@ async def extract_unread(input_html: str, model: str = DEFAULT_MODEL) -> str:
     }
 
     try:
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=False) as client:  # SSL verification enabled by default
             response = await client.post(OPENROUTER_API_URL, headers=headers, json=data)
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            result = response.json()["choices"][0]["message"]["content"]
+            json.loads(result)
+            return result
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"OpenRouter API error: {e.response.text}")
     except (KeyError, IndexError) as e:
         raise HTTPException(status_code=502, detail=f"Unexpected API response format: {str(e)}")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Invalid JSON response from OpenRouter: {str(e)}")
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Network error while contacting OpenRouter API: {str(e)}")
